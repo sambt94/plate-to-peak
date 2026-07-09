@@ -1,6 +1,6 @@
 [project]
 name = "plate-to-peak"
-version = "0.2.0"
+version = "0.2.1"
 description = "Dexcom Clarity CSV + meal diary -> meal-to-spike chart. Cowork plugin."
 requires-python = ">=3.12"
 dependencies = []

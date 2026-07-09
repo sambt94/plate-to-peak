@@ -73,8 +73,18 @@ def test_gap_renders_shading_not_line():
 def test_html_is_self_contained():
     html = build_html(PAYLOAD)
     assert html.startswith("<!doctype html>")
-    assert "<script" not in html  # no JS at all
+    # Inline JS is allowed (tooltips), but nothing may be fetched from the network.
+    assert "<script src" not in html
+    assert "<link" not in html
+    assert "https://" not in html
     assert "Plate to Peak" in html
+
+
+def test_tooltip_data_and_handler_present():
+    html = build_html(PAYLOAD)
+    assert 'data-tip=' in html  # dots carry their tooltip text
+    assert 'getScreenCTM' in html  # nearest-dot hover handler wired up
+    assert 'id="ptp-tip"' in html
 
 
 def test_empty_series_raises():

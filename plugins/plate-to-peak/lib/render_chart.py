@@ -119,10 +119,11 @@ def build_svg(payload):
         if o["x"] < x_min:
             continue
         ox, oy = sx(o["x"]), sy(o["mmol"])
+        otip = f'Unexplained spike - {o["mmol"]} mmol/L, nothing logged before it'
         parts.append(
             f'<circle cx="{ox:.1f}" cy="{oy:.1f}" r="5.5" fill="none" stroke="{C["amber"]}" '
-            f'stroke-width="2" stroke-dasharray="2 2">'
-            f'<title>Unexplained spike - {o["mmol"]} mmol/L, nothing logged before it</title></circle>'
+            f'stroke-width="2" stroke-dasharray="2 2" data-tip="{_esc(otip)}" style="cursor:pointer">'
+            f'<title>{_esc(otip)}</title></circle>'
         )
 
     # Meal dots
@@ -137,7 +138,8 @@ def build_svg(payload):
         tip = f'{clock} - {m["food"]} - peak {peak} mmol/L{delta}'
         parts.append(
             f'<circle cx="{mx:.1f}" cy="{my:.1f}" r="5.5" fill="{fill}" stroke="{C["card"]}" '
-            f'stroke-width="1.5"><title>{_esc(tip)}</title></circle>'
+            f'stroke-width="1.5" data-tip="{_esc(tip)}" style="cursor:pointer">'
+            f'<title>{_esc(tip)}</title></circle>'
         )
 
     body = "\n".join(parts)
@@ -162,6 +164,42 @@ def build_html(payload):
   </div>
   {svg}
 </div>
+<div id="ptp-tip" style="position:fixed;z-index:9;pointer-events:none;display:none;
+  background:{C['card']};border:1px solid {C['border']};color:{C['ink']};
+  font-family:{MONO};font-size:12px;line-height:1.35;padding:8px 10px;max-width:280px;
+  border-radius:4px;box-shadow:0 3px 12px rgba(42,38,34,.16)"></div>
+<script>
+(function(){{
+  var svg=document.querySelector('svg'); var tip=document.getElementById('ptp-tip');
+  if(!svg||!tip){{return;}}
+  var dots=[].slice.call(svg.querySelectorAll('circle[data-tip]')).map(function(c){{
+    return {{x:parseFloat(c.getAttribute('cx')),y:parseFloat(c.getAttribute('cy')),
+            t:c.getAttribute('data-tip')}};
+  }});
+  var R2=22*22; // hover radius in SVG user units, squared
+  function toUser(e){{
+    var p=svg.createSVGPoint(); p.x=e.clientX; p.y=e.clientY;
+    var m=svg.getScreenCTM(); if(!m){{return null;}}
+    return p.matrixTransform(m.inverse());
+  }}
+  function move(e){{
+    var u=toUser(e); if(!u){{return;}}
+    var best=null, bd=R2;
+    for(var i=0;i<dots.length;i++){{
+      var dx=dots[i].x-u.x, dy=dots[i].y-u.y, d=dx*dx+dy*dy;
+      if(d<bd){{bd=d; best=dots[i];}}
+    }}
+    if(best){{
+      tip.textContent=best.t; tip.style.display='block';
+      var vw=window.innerWidth, tw=tip.offsetWidth||220;
+      var left=e.clientX+14; if(left+tw>vw-8){{left=e.clientX-tw-14;}}
+      tip.style.left=left+'px'; tip.style.top=(e.clientY+16)+'px';
+    }} else {{ tip.style.display='none'; }}
+  }}
+  svg.addEventListener('mousemove',move);
+  svg.addEventListener('mouseleave',function(){{tip.style.display='none';}});
+}})();
+</script>
 </body></html>"""
 
 
