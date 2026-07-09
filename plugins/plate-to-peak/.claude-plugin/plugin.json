@@ -1,13 +1,13 @@
 {
-  "name": "plate-to-peak",
+  "name": "plate-to-peak-app",
   "description": "Map meals to glucose spikes. Bring a Dexcom Clarity CSV export and a meal diary with food names and rough times; get an interactive chart of what spiked you past your threshold, plus follow-up questions that fill diary gaps. Runs entirely in your Claude - no server, no upload.",
   "version": "0.2.0",
   "author": {
     "name": "Sam Beattie",
     "email": "sambt94@icloud.com"
   },
-  "homepage": "https://github.com/sambt94/plate-to-peak",
-  "repository": "https://github.com/sambt94/plate-to-peak",
+  "homepage": "https://github.com/sambt94/plate-to-peak-app",
+  "repository": "https://github.com/sambt94/plate-to-peak-app",
   "license": "MIT",
   "keywords": [
     "cgm",
