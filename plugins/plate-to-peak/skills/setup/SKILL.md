@@ -33,6 +33,10 @@ Default spike threshold: **7.8 mmol/L**. A clinician may set a different
 per-person ceiling — ask only if they mention one. Confirm their Clarity
 exports in mmol/L (Europe default) or mg/dL (US) — either is handled.
 
+If they give their threshold in mg/dL (e.g. 140), convert it to mmol/L before
+saving: divide by 18, one decimal (140 -> 7.8). The pipeline always works in
+mmol/L internally - never write a mg/dL number into threshold_mmol.
+
 ## 4. Whose data
 
 One profile per setup: ask whose data this is (a first name is enough).
@@ -45,7 +49,7 @@ Replace everything between `<!-- setup-start -->` and `<!-- setup-end -->` in
 
 ```markdown
 <!-- setup-start -->
-profile: Lelde
+profile: Anna
 sensor: Dexcom ONE+
 clarity_region: eu
 threshold_mmol: 7.8

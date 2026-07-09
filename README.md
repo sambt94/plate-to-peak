@@ -64,7 +64,7 @@ The floor: date, rough time, food name. One line per meal.
   parts (CSV parsing, spike attribution) are shipped Python scripts — Claude
   runs them rather than eyeballing your data.
 - **Absolute threshold** (default 7.8 mmol/L) decides "spiked"; the rise from
-  baseline (delta) is always shown so a sharp climb that stays under the line
+  baseline (delta) is shown whenever a baseline exists so a sharp climb that stays under the line
   is visible too.
 - **Honest gaps.** Sensor warm-up and signal loss render as gaps, and meals
   falling in them get "no verdict", never a guess.
