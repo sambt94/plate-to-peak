@@ -23,7 +23,7 @@ LibreView usually works too — map-spikes will confirm the column mapping.
 
 ## 2. Their meal diary
 
-Show `assets/meal-diary-template.md`. The floor: **food + rough time**, one
+Show `${CLAUDE_SKILL_DIR}/../../assets/meal-diary-template.md`. The floor: **food + rough time**, one
 line per meal. Ask where they'll keep it (notes app, doc — anywhere they can
 paste from). If they already log meals somewhere, that works as-is.
 
@@ -45,7 +45,7 @@ To analyse someone else's export later, re-run setup.
 ## Write the cache
 
 Replace everything between `<!-- setup-start -->` and `<!-- setup-end -->` in
-`plate-to-peak.memory.md`:
+the cache file at `${CLAUDE_SKILL_DIR}/../../plate-to-peak.memory.md`:
 
 ```markdown
 <!-- setup-start -->

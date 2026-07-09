@@ -7,11 +7,18 @@ Map meals to glucose spikes: parse the CGM export deterministically, parse the
 meal diary leniently, attribute spikes with the shipped Python scripts (never by
 eyeballing), render the chart artifact, then ask about unexplained spikes.
 
+## Where the shipped files live
+
+Every script and asset this skill uses lives under the plugin root,
+`${CLAUDE_SKILL_DIR}/../..`. The commands below already spell out that path, so
+they resolve no matter what directory the user is chatting from. The scripts use
+only the Python standard library — run them with `python3`, no venv or install.
+
 ## Before anything
 
-Read `plate-to-peak.memory.md` in this plugin folder. If the section between
-`<!-- setup-start -->` and `<!-- setup-end -->` is empty, run the **setup**
-skill first, then come back here.
+Read the setup cache at `${CLAUDE_SKILL_DIR}/../../plate-to-peak.memory.md`. If
+the section between `<!-- setup-start -->` and `<!-- setup-end -->` is empty, run
+the **setup** skill first, then come back here.
 
 Use the threshold and units from the setup cache (default 7.8 mmol/L).
 
@@ -19,7 +26,7 @@ Use the threshold and units from the setup cache (default 7.8 mmol/L).
 
 1. **Glucose CSV** — a Dexcom Clarity export the user drops into the chat.
 2. **Meal diary** — a document or pasted text. The floor per entry: food + rough
-   time. See `assets/meal-diary-template.md`.
+   time. See `${CLAUDE_SKILL_DIR}/../../assets/meal-diary-template.md`.
 
 ## Privacy
 
@@ -32,7 +39,7 @@ leaves this Claude session — no uploads, no external calls.
 Run the shipped parser; do not read the CSV yourself:
 
 ```
-python lib/parse_clarity.py <csv-path> > parsed.json
+python3 ${CLAUDE_SKILL_DIR}/../../lib/parse_clarity.py <csv-path> > parsed.json
 ```
 
 Handles BOM, metadata rows, mmol/L vs mg/dL, `Low`/`High` sentinel values, and
@@ -58,7 +65,7 @@ Write `{"readings": <from parsed.json>, "meals": <step 2>, "threshold": <from se
 to a file, then:
 
 ```
-python lib/attribute.py input.json > attribution.json
+python3 ${CLAUDE_SKILL_DIR}/../../lib/attribute.py input.json > attribution.json
 ```
 
 Each meal comes back with `status` (`ok` / `ambiguous` / `insufficient_data`),
@@ -81,12 +88,13 @@ If they don't know, leave it — an honest unexplained spike beats a guessed one
 ## Step 5 — Render the artifact
 
 ```
-python lib/chart_data.py combined.json > payload.json
+python3 ${CLAUDE_SKILL_DIR}/../../lib/chart_data.py combined.json > payload.json
 ```
 
 (where combined.json = `{"parsed": ..., "attribution": ..., "threshold": ...}`).
-Take `assets/chart-template.jsx`, replace the `DATA` placeholder (marked
-`/*__PAYLOAD__*/`) with the payload JSON, and render it as a React artifact.
+Take `${CLAUDE_SKILL_DIR}/../../assets/chart-template.jsx`, replace the `DATA`
+placeholder (marked `/*__PAYLOAD__*/`) with the payload JSON, and render it as a
+React artifact.
 
 Then give a short readout, ranked by peak:
 
