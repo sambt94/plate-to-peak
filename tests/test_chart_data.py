@@ -43,3 +43,23 @@ def test_gaps_and_orphans_in_minutes():
 
 def test_threshold_default():
     assert build_payload(PARSED, ATTRIBUTION)["threshold"] == 7.8
+
+
+def test_empty_readings_raises_clear_error():
+    import pytest
+    with pytest.raises(ValueError, match="no glucose readings"):
+        build_payload({"unit": "mmol/L", "readings": [], "gaps": []},
+                      {"meals": [], "orphans": []})
+
+
+def test_meal_before_first_reading_gets_negative_x():
+    # x is minutes from the first reading; a meal logged before the sensor
+    # window is honestly negative (the chart clips it), never silently dropped.
+    attribution = {
+        "meals": [{"time": "2026-06-01T07:30:00", "food": "early toast", "status": "insufficient_data",
+                   "baseline": None, "peak": None, "peak_time": None, "delta": None,
+                   "spiked": False, "notable_rise": False}],
+        "orphans": [],
+    }
+    p = build_payload(PARSED, attribution)
+    assert p["meals"][0]["x"] == -30

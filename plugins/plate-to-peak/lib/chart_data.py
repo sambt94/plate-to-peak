@@ -9,8 +9,12 @@ FMT = "%Y-%m-%dT%H:%M:%S"
 
 def build_payload(parsed, attribution, threshold=7.8):
     readings = parsed["readings"]
+    if not readings:
+        raise ValueError("no glucose readings to chart - is the CSV empty or header-only?")
     t0 = datetime.strptime(readings[0]["t"], FMT)
 
+    # x is minutes from the first reading; timestamps before the sensor window
+    # come out negative on purpose - the chart clips them, nothing false renders.
     def x(iso):
         return int((datetime.strptime(iso, FMT) - t0).total_seconds() // 60)
 
