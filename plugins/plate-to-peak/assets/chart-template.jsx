@@ -104,7 +104,9 @@ const fmtDay = (x) => {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' });
 };
 
-// Split the series at gaps so the trend never bridges a data hole, then merge.
+// Split the series at gaps so the trend never bridges a data hole. Each segment
+// gets its own mmol key (mmol0, mmol1, ...) so its Line can connectNulls through
+// the sparse trend vertices without bridging across the gap to the next segment.
 function chartRows() {
   const cuts = [0, ...DATA.gaps.map((g) => g.x2)];
   const segments = cuts.map((start, i) => {
@@ -113,10 +115,14 @@ function chartRows() {
   }).filter((s) => s.length > 1);
   const rows = [];
   segments.forEach((seg, i) => {
-    if (i > 0) rows.push({ x: seg[0].x - 1 }); // null row breaks the line across the gap
-    rows.push(...buildChartData(seg));
+    if (i > 0) rows.push({ x: seg[0].x - 1 }); // bandless row breaks the Area across the gap
+    for (const r of buildChartData(seg)) {
+      const row = { x: r.x, band: r.band };
+      if (r.mmol != null) row[`mmol${i}`] = r.mmol;
+      rows.push(row);
+    }
   });
-  return rows;
+  return { rows, segmentCount: segments.length };
 }
 
 // Day ticks at each midnight-noon within the x range.
@@ -138,9 +144,26 @@ function MealDot(props) {
   return <circle cx={cx} cy={cy} r={6} fill={fill} stroke={C.card} strokeWidth={2} />;
 }
 
+function OrphanDot(props) {
+  const { cx, cy } = props;
+  if (cx == null || cy == null) return null;
+  return <circle cx={cx} cy={cy} r={5} fill="none" stroke={C.amber} strokeWidth={2} strokeDasharray="2 2" />;
+}
+
 function MealTip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const m = payload.find((p) => p.payload?.food)?.payload;
+  const o = payload.find((p) => p.payload?.orphan)?.payload;
+  if (!m && o) {
+    return (
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 10,
+                    fontFamily: MONO, fontSize: 12, color: C.ink, maxWidth: 220 }}>
+        <div style={{ color: C.muted }}>{fmtDay(o.x)} {fmtClock(o.x)}</div>
+        <div style={{ fontWeight: 600, margin: '4px 0' }}>unexplained spike</div>
+        <div>peak {o.mmol} mmol/L - nothing logged before it</div>
+      </div>
+    );
+  }
   if (!m) return null;
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 10,
@@ -159,7 +182,7 @@ function MealTip({ active, payload }) {
 }
 
 export default function PlateToPeakChart() {
-  const rows = chartRows();
+  const { rows, segmentCount } = chartRows();
   const yFor = (x) => {
     let best = null, bd = Infinity;
     for (const p of DATA.series) {
@@ -168,12 +191,15 @@ export default function PlateToPeakChart() {
     }
     return best ? best.mmol : null;
   };
-  const mealPoints = DATA.meals.map((m) => ({ ...m, mmol: yFor(m.x) }));
+  // Meals timestamped before the sensor window (negative x) are reported in the
+  // text readout but not drawn - a Scatter point would stretch the axis, not clip.
+  const mealPoints = DATA.meals.filter((m) => m.x >= 0).map((m) => ({ ...m, mmol: yFor(m.x) }));
+  const orphanPoints = DATA.orphans.map((o) => ({ ...o, orphan: true }));
   return (
     <div style={{ background: C.bone, padding: 24, fontFamily: MONO }}>
       <h2 style={{ color: C.ink, fontSize: 16, margin: '0 0 4px' }}>Plate to Peak</h2>
       <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>
-        glucose vs meals - red dots crossed {DATA.threshold} mmol/L, amber rose sharply under it
+        glucose vs meals - red dots crossed {DATA.threshold} mmol/L, amber rose sharply under it, dashed circles are unexplained spikes
       </div>
       <ResponsiveContainer width="100%" height={420}>
         <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
@@ -188,9 +214,12 @@ export default function PlateToPeakChart() {
           <ReferenceLine y={DATA.threshold} stroke={C.red} strokeDasharray="4 4"
                          label={{ value: `${DATA.threshold}`, fill: C.red, fontSize: 11, position: 'right' }} />
           <Area dataKey="band" fill={C.border} stroke="none" connectNulls={false} isAnimationActive={false} />
-          <Line dataKey="mmol" type="monotone" stroke={C.ink} strokeWidth={1.5} dot={false}
-                connectNulls={false} isAnimationActive={false} />
+          {Array.from({ length: segmentCount }, (_, i) => (
+            <Line key={i} dataKey={`mmol${i}`} type="monotone" stroke={C.ink} strokeWidth={1.5}
+                  dot={false} connectNulls isAnimationActive={false} />
+          ))}
           <Scatter data={mealPoints} dataKey="mmol" shape={<MealDot />} isAnimationActive={false} />
+          <Scatter data={orphanPoints} dataKey="mmol" shape={<OrphanDot />} isAnimationActive={false} />
           <Tooltip content={<MealTip />} />
         </ComposedChart>
       </ResponsiveContainer>
