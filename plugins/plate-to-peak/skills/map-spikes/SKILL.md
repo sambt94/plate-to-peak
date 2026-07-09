@@ -7,26 +7,34 @@ Map meals to glucose spikes: parse the CGM export deterministically, parse the
 meal diary leniently, attribute spikes with the shipped Python scripts (never by
 eyeballing), render the chart artifact, then ask about unexplained spikes.
 
-## Where the shipped files live
+## Where the shipped files live — resolve this FIRST
 
-Every script and asset this skill uses lives under the plugin root,
-`${CLAUDE_SKILL_DIR}/../..`. The commands below already spell out that path, so
-they resolve no matter what directory the user is chatting from. The scripts use
-only the Python standard library — run them with `python3`, no venv or install.
+Every script and asset lives under the plugin root (the folder holding `lib/`,
+`assets/`, and `skills/`). Resolve it once, before Step 1, and reuse it:
+
+1. In Claude Code, `${CLAUDE_SKILL_DIR}/../..` expands to the plugin root — use it.
+2. If that variable doesn't expand in your shell (Cowork), find the root once:
+   `find / -name "parse_clarity.py" -path "*plate-to-peak*" 2>/dev/null | head -1`
+   and take that file's grandparent directory.
+
+Call it `$ROOT` below. The scripts use only the Python standard library — run
+them with `python3`, no venv, no installs.
 
 ## Before anything
 
-Read the setup cache at `${CLAUDE_SKILL_DIR}/../../plate-to-peak.memory.md`. If
-the section between `<!-- setup-start -->` and `<!-- setup-end -->` is empty, run
-the **setup** skill first, then come back here.
+Read the setup cache at `$ROOT/plate-to-peak.memory.md`. If the section between
+`<!-- setup-start -->` and `<!-- setup-end -->` is empty AND you don't already
+have the user's settings from this conversation, run the **setup** skill first,
+then come back here. (The cache can be read-only in some environments — settings
+held in the conversation are just as good.)
 
-Use the threshold and units from the setup cache (default 7.8 mmol/L).
+Use the threshold from setup; default 7.8 mmol/L.
 
 ## Inputs
 
 1. **Glucose CSV** — a Dexcom Clarity export the user drops into the chat.
 2. **Meal diary** — a document or pasted text. The floor per entry: food + rough
-   time. See `${CLAUDE_SKILL_DIR}/../../assets/meal-diary-template.md`.
+   time. See `$ROOT/assets/meal-diary-template.md`.
 
 ## Privacy
 
@@ -39,7 +47,7 @@ leaves this Claude session — no uploads, no external calls.
 Run the shipped parser; do not read the CSV yourself:
 
 ```
-python3 ${CLAUDE_SKILL_DIR}/../../lib/parse_clarity.py <csv-path> > parsed.json
+python3 $ROOT/lib/parse_clarity.py <csv-path> > parsed.json
 ```
 
 Handles BOM, metadata rows, mmol/L vs mg/dL, `Low`/`High` sentinel values, and
@@ -65,7 +73,7 @@ Write `{"readings": <from parsed.json>, "meals": <step 2>, "threshold": <from se
 to a file, then:
 
 ```
-python3 ${CLAUDE_SKILL_DIR}/../../lib/attribute.py input.json > attribution.json
+python3 $ROOT/lib/attribute.py input.json > attribution.json
 ```
 
 Each meal comes back with `status` (`ok` / `ambiguous` / `insufficient_data`),
@@ -85,16 +93,21 @@ For each, ask the user, one at a time:
 If they answer, append the meal to the step-2 list and **re-run step 3**.
 If they don't know, leave it — an honest unexplained spike beats a guessed one.
 
-## Step 5 — Render the artifact
+## Step 5 — Render the chart
+
+Write combined.json = `{"parsed": <parsed.json>, "attribution": <attribution.json>, "threshold": <from setup>}`, then:
 
 ```
-python3 ${CLAUDE_SKILL_DIR}/../../lib/chart_data.py combined.json > payload.json
+python3 $ROOT/lib/chart_data.py combined.json > payload.json
+python3 $ROOT/lib/render_chart.py payload.json chart.html
 ```
 
-(where combined.json = `{"parsed": ..., "attribution": ..., "threshold": ...}`).
-Take `${CLAUDE_SKILL_DIR}/../../assets/chart-template.jsx`, replace the `DATA`
-placeholder (marked `/*__PAYLOAD__*/`) with the payload JSON, and render it as a
-React artifact.
+`chart.html` is fully self-contained: static inline SVG, no JavaScript, no
+libraries, no network. Present it to the user as an HTML artifact (or open the
+file directly) — do NOT rebuild the chart yourself with a charting library or
+hand-drawn approximation. The shipped renderer draws every glucose reading as a
+line vertex, so it is accurate by construction; an improvised chart will smooth
+away the spikes and mislead the user.
 
 Then give a short readout, ranked by peak:
 

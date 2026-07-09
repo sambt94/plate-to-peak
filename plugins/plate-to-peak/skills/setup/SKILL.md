@@ -1,62 +1,75 @@
 ---
 name: setup
-description: First-run wizard for Plate to Peak. Auto-triggered by map-spikes when the setup cache is empty; also on demand. Trigger phrases: "set up plate to peak", "get started with plate to peak", "plate to peak setup".
+description: First-run wizard for Plate to Peak. Auto-triggered by map-spikes when the setup cache is empty; also on demand. Trigger phrases: "set up plate to peak", "get started with plate to peak", "plate to peak setup", "run plate to peak" (first time).
 ---
 
-Get a new user from zero to their first meal-to-spike chart. Conversational,
-one thing at a time, lenient with input. Writes what you learn to
-`plate-to-peak.memory.md` so map-spikes doesn't ask twice.
+Get a new user to their first meal-to-spike chart. Conversational, one thing at
+a time, lenient with input. Short: this wizard is TWO questions for most people.
 
 Open with the privacy stance, one line: everything runs in this Claude —
 no server, no upload, and the export's name/date-of-birth rows are ignored.
 
-## 1. Their CGM data
+Resolve the plugin root first (same rule as map-spikes): in Claude Code,
+`${CLAUDE_SKILL_DIR}/../..`; if that doesn't expand in your shell, find it once
+with `find / -name "parse_clarity.py" -path "*plate-to-peak*" 2>/dev/null | head -1`
+and take that file's grandparent directory. Call it `$ROOT`.
 
-Ask which sensor they wear (Dexcom / Libre / other) and note it.
+## Question 1 — Demo or their own data?
 
-For Dexcom: log in at **clarity.dexcom.com** (Europe: **clarity.dexcom.eu**)
-with the same account as the phone app, and export a CSV for the date range
-they want to look at. Then: "drop the CSV here." Help live if they get stuck.
+> Want to **see it work on sample data first** (ten seconds, nothing needed from
+> you), or jump straight in with **your own glucose export**?
 
-For non-Dexcom sensors: v1 is built for Clarity exports, but a CSV from
-LibreView usually works too — map-spikes will confirm the column mapping.
+**If demo:** skip everything below. Hand the map-spikes skill the shipped demo
+inputs — CSV `$ROOT/assets/demo/demo-clarity-export.csv`, diary
+`$ROOT/assets/demo/demo-meal-diary.md`, threshold 7.8 — and run it end to end,
+follow-up questions included (the demo has one unexplained spike; its diary note
+explains it as a gym session, so use it to show how the "did you eat something
+here?" loop works). Afterwards, offer: "That's the demo. Ready to try your own
+export?" and come back here.
 
-## 2. Their meal diary
+**If their own data:** carry on.
 
-Show `${CLAUDE_SKILL_DIR}/../../assets/meal-diary-template.md`. The floor: **food + rough time**, one
-line per meal. Ask where they'll keep it (notes app, doc — anywhere they can
-paste from). If they already log meals somewhere, that works as-is.
+## Question 2 — Their glucose export
 
-## 3. Threshold and units
+Plate to Peak works with **Dexcom Clarity CSV exports** (other sensors are on
+the roadmap — don't offer them). Walk them through getting one, gently:
 
-Default spike threshold: **7.8 mmol/L**. A clinician may set a different
-per-person ceiling — ask only if they mention one. Confirm their Clarity
-exports in mmol/L (Europe default) or mg/dL (US) — either is handled.
+> Log in at **clarity.dexcom.com** (Europe: **clarity.dexcom.eu**) with the same
+> account as your Dexcom phone app, and export a CSV for the date range you want
+> to look at. Then drop the file here.
 
-If they give their threshold in mg/dL (e.g. 140), convert it to mmol/L before
-saving: divide by 18, one decimal (140 -> 7.8). The pipeline always works in
-mmol/L internally - never write a mg/dL number into threshold_mmol.
+Help live if they get stuck. Both mmol/L and mg/dL exports are handled
+automatically — no need to ask about units.
 
-## 4. Whose data
+## Only if it comes up (don't ask proactively)
 
-One profile per setup: ask whose data this is (a first name is enough).
-To analyse someone else's export later, re-run setup.
+- **Threshold:** default **7.8 mmol/L**. If a clinician sets a different
+  per-person ceiling, use theirs. If they give it in mg/dL (e.g. 140), convert:
+  divide by 18, one decimal (140 -> 7.8). The pipeline always works in mmol/L —
+  never store a mg/dL number as the threshold.
+- **Meal diary:** if they ask what to log, show
+  `$ROOT/assets/meal-diary-template.md`. The floor: food + rough time, one line
+  per meal. Anywhere they can paste from is fine.
+- **Whose data:** if they mention analysing someone else's export (a clinician
+  running a client's data), just note the first name with the results. One
+  person per run.
 
-## Write the cache
+## Save the settings
 
-Replace everything between `<!-- setup-start -->` and `<!-- setup-end -->` in
-the cache file at `${CLAUDE_SKILL_DIR}/../../plate-to-peak.memory.md`:
+Try to write what you learned between the `<!-- setup-start -->` and
+`<!-- setup-end -->` markers in `$ROOT/plate-to-peak.memory.md`:
 
 ```markdown
 <!-- setup-start -->
 profile: Anna
-sensor: Dexcom ONE+
-clarity_region: eu
 threshold_mmol: 7.8
-units: mmol/L
-diary_home: Apple Notes
+clarity_region: eu
 <!-- setup-end -->
 ```
 
-Confirm what you captured in one short list, then offer: "Drop your CSV and
-diary here whenever you're ready and say **map my spikes**."
+If the plugin folder is read-only in this environment, don't fight it: keep the
+settings in the conversation and carry on. The wizard is two questions — asking
+again next session costs nothing.
+
+Close with: "Drop your CSV and meal notes here whenever you're ready and say
+**map my spikes**."
