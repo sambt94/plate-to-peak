@@ -33,8 +33,12 @@ Start a new chat and type:
 
 > **set up plate to peak**
 
-Claude asks a couple of quick questions (which sensor you use, where you keep your
-food notes) and shows you how to export your glucose CSV. Just answer as you go.
+The first thing Claude offers is a **demo on sample data** — say yes and you'll
+see a full chart in about ten seconds, before you've exported anything. It's a
+made-up person, so it's also a safe way to show the tool to someone else.
+
+When you're ready for your own data, Claude shows you how to export your glucose
+CSV from Dexcom Clarity. Just answer as you go — it's two questions.
 
 ## Step 3 — Get your chart
 

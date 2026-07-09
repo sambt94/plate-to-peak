@@ -34,7 +34,8 @@ and never appear in any output.
 
 First run: say **"set up plate to peak"** — a two-minute wizard covers getting
 your CSV out of Clarity, the meal-diary floor (food + rough time), and your
-threshold. After that:
+threshold. It opens by offering a **demo on bundled sample data** — a full chart
+in seconds, nothing needed from you — before you touch your own export. After that:
 
 1. Export a CSV from [Dexcom Clarity](https://clarity.dexcom.eu) (same login as your phone app).
 2. Drop the CSV and your meal diary into the chat.
