@@ -88,3 +88,28 @@ def test_baseline_widens_to_30min_lookback():
     ]
     out = attribute(readings, [{"time": "2026-06-01T09:00:00", "food": "toast"}])
     assert out["meals"][0]["baseline"] == 5.5
+
+
+def test_orphan_spike_detected_when_no_meal_logged():
+    out = attribute(flat_then_spike(), [])  # spike present, diary empty
+    assert len(out["orphans"]) == 1
+    o = out["orphans"][0]
+    assert o["mmol"] == 9.6
+    assert o["time"] == "2026-06-01T09:45:00"
+
+
+def test_no_orphan_when_meal_explains_spike():
+    out = attribute(flat_then_spike(), [{"time": "2026-06-01T09:00:00", "food": "croissant"}])
+    assert out["orphans"] == []
+
+
+def test_plateau_produces_single_orphan():
+    vals = [5.0] * 13 + [8.5, 8.6, 8.6, 8.6, 8.5, 8.4, 6.0, 5.2, 5.0]
+    out = attribute(series("2026-06-01T08:00:00", *vals), [])
+    assert len(out["orphans"]) == 1
+
+
+def test_subthreshold_bump_is_not_an_orphan():
+    vals = [5.0] * 13 + [6.0, 7.0, 7.5, 7.0, 6.0, 5.2, 5.0]
+    out = attribute(series("2026-06-01T08:00:00", *vals), [])
+    assert out["orphans"] == []

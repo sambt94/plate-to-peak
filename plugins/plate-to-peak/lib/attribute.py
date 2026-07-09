@@ -59,7 +59,27 @@ def attribute(readings, meals, threshold=7.8, window=(15, 90), delta_notable=2.0
                 if r is not owner:
                     r["status"] = "ambiguous"
 
-    return {"meals": results, "orphans": []}
+    return {"meals": results, "orphans": find_orphans(rts, meals, threshold, window)}
+
+
+def find_orphans(rts, meals, threshold=7.8, window=(15, 90)):
+    """Spikes >= threshold with no meal logged in their causal lookback window."""
+    meal_times = [_dt(m["time"]) for m in meals]
+    orphans = []
+    for rt, g in rts:
+        if g < threshold:
+            continue
+        lo, hi = rt - timedelta(minutes=30), rt + timedelta(minutes=30)
+        neighbourhood = [g2 for rt2, g2 in rts if lo <= rt2 <= hi]
+        if g < max(neighbourhood):
+            continue  # not the local maximum
+        if any(rt - timedelta(minutes=window[1]) <= mt <= rt - timedelta(minutes=window[0])
+               for mt in meal_times):
+            continue  # a logged meal explains this peak
+        if orphans and rt - _dt(orphans[-1]["time"]) < timedelta(minutes=45):
+            continue  # same plateau/event as the previous orphan
+        orphans.append({"time": rt.strftime(FMT), "mmol": g})
+    return orphans
 
 
 if __name__ == "__main__":
