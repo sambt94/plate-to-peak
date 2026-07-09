@@ -113,3 +113,10 @@ def test_subthreshold_bump_is_not_an_orphan():
     vals = [5.0] * 13 + [6.0, 7.0, 7.5, 7.0, 6.0, 5.2, 5.0]
     out = attribute(series("2026-06-01T08:00:00", *vals), [])
     assert out["orphans"] == []
+
+
+def test_long_plateau_still_single_orphan():
+    # 80-minute flat plateau at 8.5 - one event, one orphan even past the 45-min mark
+    vals = [5.0] * 13 + [8.5] * 17 + [5.2, 5.0]
+    out = attribute(series("2026-06-01T08:00:00", *vals), [])
+    assert len(out["orphans"]) == 1
