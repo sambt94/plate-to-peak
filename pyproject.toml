@@ -1,0 +1,12 @@
+[project]
+name = "plate-to-peak"
+version = "0.1.0"
+description = "Dexcom Clarity CSV + meal diary -> meal-to-spike chart. Cowork plugin."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

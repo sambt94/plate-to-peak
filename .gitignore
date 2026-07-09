@@ -1,0 +1,8 @@
+# Real health data and answer keys live here — NEVER committed (public repo)
+local/
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store

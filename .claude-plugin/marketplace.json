@@ -1,0 +1,22 @@
+{
+  "name": "plate-to-peak",
+  "owner": {
+    "name": "Sam Beattie",
+    "email": "sambt94@icloud.com"
+  },
+  "description": "Map meals to glucose spikes from a CGM export and a simple meal diary.",
+  "plugins": [
+    {
+      "name": "plate-to-peak",
+      "source": "./plugins/plate-to-peak",
+      "description": "Turn a Dexcom Clarity CSV + a meal diary (food + rough time) into an interactive meal-to-spike chart, with follow-up questions that fill diary gaps. Data never leaves your Claude.",
+      "version": "0.1.0",
+      "author": { "name": "Sam Beattie", "email": "sambt94@icloud.com" },
+      "homepage": "https://github.com/sambt94/plate-to-peak",
+      "repository": "https://github.com/sambt94/plate-to-peak",
+      "license": "MIT",
+      "keywords": ["cgm", "glucose", "dexcom", "metabolic-health", "meal-diary", "health"],
+      "category": "health"
+    }
+  ]
+}
