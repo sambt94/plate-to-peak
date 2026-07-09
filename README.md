@@ -6,7 +6,7 @@ draws you an interactive chart: your glucose curve, your meals as dots, red
 where a meal pushed you over your threshold. When it finds a spike with no
 meal logged, it asks: *"did you eat something here?"*
 
-Built by [Sam Beattie](https://sambt.dev) with Dr Lelde's metabolic-health
+Built by [Sam Beattie](https://sambt.dev) with a metabolic-health clinician's
 community as first users.
 
 ## Privacy
