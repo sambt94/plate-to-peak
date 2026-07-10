@@ -99,15 +99,23 @@ Write combined.json = `{"parsed": <parsed.json>, "attribution": <attribution.jso
 
 ```
 python3 $ROOT/lib/chart_data.py combined.json > payload.json
+python3 $ROOT/lib/render_chart.py payload.json --widget > chart-widget.html
 python3 $ROOT/lib/render_chart.py payload.json chart.html
 ```
 
-`chart.html` is fully self-contained: static inline SVG, no JavaScript, no
-libraries, no network. Present it to the user as an HTML artifact (or open the
-file directly) — do NOT rebuild the chart yourself with a charting library or
-hand-drawn approximation. The shipped renderer draws every glucose reading as a
-line vertex, so it is accurate by construction; an improvised chart will smooth
-away the spikes and mislead the user.
+**Render it inline with the `visualize` tool** (this is what makes it a live,
+interactive chart in Cowork rather than a code file): read `chart-widget.html`
+and call visualize `show_widget` with its full contents as `widget_code` and a
+title like `plate_to_peak_chart`. It is a theme-adaptive HTML fragment built to
+the widget spec — the glucose line, coloured meal dots, and hover tooltips are
+all in it. (Follow the visualize tool's own setup, e.g. its one-time `read_me`.)
+
+If the `visualize` tool isn't available in this environment, fall back to
+presenting `chart.html` — a fully self-contained static-SVG file the user can
+open. Either way, **do NOT rebuild the chart yourself** with a charting library
+or a hand-drawn approximation. The shipped renderer draws every glucose reading
+as a line vertex, so it is accurate by construction; an improvised chart smooths
+away the spikes and misleads the user.
 
 Then give a short readout, ranked by peak:
 

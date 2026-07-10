@@ -87,6 +87,27 @@ def test_tooltip_data_and_handler_present():
     assert 'id="ptp-tip"' in html
 
 
+def test_widget_fragment_is_widget_safe():
+    from render_chart import build_widget
+    w = build_widget(PAYLOAD)
+    assert "<!doctype" not in w.lower()  # fragment, not a full doc
+    assert "position:fixed" not in w.replace(" ", "")  # banned in the widget iframe
+    assert "data-tip=" in w and "getScreenCTM" in w  # interactive tooltips
+    assert "currentColor" in w  # theme-adaptive line
+    assert 'class="sr-only"' in w  # screen-reader summary
+
+
+def test_widget_and_file_agree_on_line_vertices():
+    import re
+    from render_chart import build_widget
+
+    def vcount(s):
+        return sum(len(p.split()) for p in re.findall(r'points="([^"]+)"', s))
+
+    # widget and standalone file must plot the exact same geometry (drift guard)
+    assert vcount(build_svg(PAYLOAD)) == vcount(build_widget(PAYLOAD))
+
+
 def test_empty_series_raises():
     with pytest.raises(ValueError, match="no series"):
         build_svg({"startISO": "2026-06-01T08:00:00", "threshold": 7.8,

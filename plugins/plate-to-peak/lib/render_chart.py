@@ -203,12 +203,156 @@ def build_html(payload):
 </body></html>"""
 
 
+def _layout(payload):
+    """Shared geometry: turns the payload into positioned SVG primitives (no colours)."""
+    series = payload["series"]
+    if not series:
+        raise ValueError("no series to chart")
+    threshold = payload["threshold"]
+    t0 = datetime.strptime(payload["startISO"], FMT)
+    xs = [p["x"] for p in series]
+    x_min, x_max = min(xs), max(xs)
+    y_top = max([p["mmol"] for p in series]
+                + [m["peak"] for m in payload["meals"] if m.get("peak")] + [threshold]) + 1
+    y_bot = 2.0
+
+    def sx(x):
+        return M["left"] + (x - x_min) / (x_max - x_min or 1) * PW
+
+    def sy(mmol):
+        return M["top"] + (y_top - mmol) / (y_top - y_bot) * PH
+
+    def nearest_mmol(x):
+        best, bd = series[0]["mmol"], abs(series[0]["x"] - x)
+        for p in series:
+            d = abs(p["x"] - x)
+            if d < bd:
+                bd, best = d, p["mmol"]
+        return best
+
+    gaps = payload.get("gaps", [])
+    cuts = [x_min] + [g["x2"] for g in gaps]
+    segments = []
+    for i, start in enumerate(cuts):
+        end = gaps[i]["x1"] if i < len(gaps) else x_max
+        seg = [p for p in series if start <= p["x"] <= end]
+        if len(seg) > 1:
+            segments.append(" ".join(f"{sx(p['x']):.1f},{sy(p['mmol']):.1f}" for p in seg))
+
+    gap_rects = [(sx(g["x1"]), sx(g["x2"]) - sx(g["x1"])) for g in gaps]
+
+    start_min = t0.hour * 60 + t0.minute
+    first_mid = (1440 - start_min) % 1440
+    gridlines, d = [], first_mid
+    while d <= x_max:
+        if d >= x_min:
+            gridlines.append(sx(d))
+        d += 1440
+    day_labels, noon = [], first_mid - 720
+    while noon <= x_max:
+        if noon >= x_min:
+            day_labels.append((sx(noon), (t0 + timedelta(minutes=noon)).strftime("%a %-d")))
+        noon += 1440
+
+    y_ticks, tick = [], 2
+    while tick <= y_top:
+        y_ticks.append((tick, sy(tick)))
+        tick += 2
+
+    meals = []
+    for m in payload["meals"]:
+        if m["x"] < 0 or m.get("status") == "insufficient_data":
+            continue
+        role = "spiked" if m["spiked"] else ("notable" if m.get("notableRise") else "calm")
+        clock = (t0 + timedelta(minutes=m["x"])).strftime("%a %-d, %H:%M")
+        peak = f'{m["peak"]}' if m.get("peak") is not None else "?"
+        delta = f', +{m["delta"]} from baseline' if m.get("delta") is not None else ""
+        meals.append({"x": sx(m["x"]), "y": sy(nearest_mmol(m["x"])), "role": role,
+                      "tip": f'{clock} - {m["food"]} - peak {peak} mmol/L{delta}'})
+    orphans = [{"x": sx(o["x"]), "y": sy(o["mmol"]),
+                "tip": f'Unexplained spike - {o["mmol"]} mmol/L, nothing logged before it'}
+               for o in payload.get("orphans", []) if o["x"] >= x_min]
+
+    return {"segments": segments, "gaps": gap_rects, "gridlines": gridlines,
+            "day_labels": day_labels, "y_ticks": y_ticks,
+            "threshold": threshold, "threshold_y": sy(threshold),
+            "meals": meals, "orphans": orphans}
+
+
+def build_widget(payload):
+    """Theme-adaptive HTML fragment for the visualize show_widget tool (Cowork inline render).
+
+    No <html>/<body>, no position:fixed, transparent surface, currentColor + mid-ramp colours
+    that read in both light and dark mode. Same geometry as the standalone file.
+    """
+    g = _layout(payload)
+    RED, AMBER, GREEN = "#E24B4A", "#EF9F27", "#639922"  # c-red/amber/green 400 - legible both modes
+    dot_c = {"spiked": RED, "notable": AMBER, "calm": GREEN}
+    p = []
+    for gx, gw in g["gaps"]:
+        p.append(f'<rect x="{gx:.1f}" y="{M["top"]}" width="{gw:.1f}" height="{PH}" '
+                 f'fill="currentColor" opacity="0.06"/>')
+    for gx in g["gridlines"]:
+        p.append(f'<line x1="{gx:.1f}" y1="{M["top"]}" x2="{gx:.1f}" y2="{M["top"] + PH}" '
+                 f'stroke="currentColor" stroke-opacity="0.12"/>')
+    for label, gy in [(v, y) for v, y in g["y_ticks"]]:
+        p.append(f'<text x="{M["left"] - 8}" y="{gy + 4:.1f}" text-anchor="end" font-size="11" '
+                 f'fill="currentColor" fill-opacity="0.5">{label}</text>')
+    for gx, label in g["day_labels"]:
+        p.append(f'<text x="{gx:.1f}" y="{H - 12}" text-anchor="middle" font-size="12" '
+                 f'fill="currentColor" fill-opacity="0.6">{label}</text>')
+    ty = g["threshold_y"]
+    p.append(f'<line x1="{M["left"]}" y1="{ty:.1f}" x2="{M["left"] + PW}" y2="{ty:.1f}" '
+             f'stroke="{RED}" stroke-width="1" stroke-dasharray="4 4"/>')
+    p.append(f'<text x="{M["left"] + PW}" y="{ty - 5:.1f}" text-anchor="end" font-size="11" '
+             f'fill="{RED}">{g["threshold"]}</text>')
+    for seg in g["segments"]:
+        p.append(f'<polyline points="{seg}" fill="none" stroke="currentColor" stroke-width="1.4" '
+                 f'stroke-linejoin="round" stroke-linecap="round"/>')
+    for o in g["orphans"]:
+        p.append(f'<circle cx="{o["x"]:.1f}" cy="{o["y"]:.1f}" r="5.5" fill="none" stroke="{AMBER}" '
+                 f'stroke-width="2" stroke-dasharray="2 2" data-tip="{_esc(o["tip"])}"/>')
+    for m in g["meals"]:
+        p.append(f'<circle cx="{m["x"]:.1f}" cy="{m["y"]:.1f}" r="5.5" fill="{dot_c[m["role"]]}" '
+                 f'stroke="var(--surface-0)" stroke-width="1.5" data-tip="{_esc(m["tip"])}"/>')
+    svg = (f'<svg viewBox="0 0 {W} {H}" width="100%" role="img" '
+           f'style="display:block;overflow:visible">{"".join(p)}</svg>')
+    thr = g["threshold"]
+    return f"""<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">Glucose over time with meal markers; red dots crossed {thr} mmol/L.</h2>
+<div style="display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin:0 0 8px">
+<span style="color:{RED}">● over {thr}</span><span style="color:{AMBER}">● sharp rise</span>
+<span style="color:{GREEN}">● calm</span><span>◌ unexplained spike</span></div>
+<div id="ptp-wrap" style="position:relative;color:var(--text-primary);font-family:var(--font-mono,ui-monospace,monospace)">
+{svg}
+<div id="ptp-tip" style="position:absolute;display:none;pointer-events:none;z-index:5;
+background:var(--surface-3,var(--surface-2));border:0.5px solid var(--border);color:var(--text-primary);
+font-size:12px;line-height:1.35;padding:7px 9px;max-width:260px;border-radius:8px"></div></div>
+<script>
+(function(){{
+var wrap=document.getElementById('ptp-wrap');var svg=wrap.querySelector('svg');var tip=document.getElementById('ptp-tip');
+var dots=[].slice.call(svg.querySelectorAll('circle[data-tip]')).map(function(c){{
+return {{x:parseFloat(c.getAttribute('cx')),y:parseFloat(c.getAttribute('cy')),t:c.getAttribute('data-tip')}};}});
+var R2=22*22;
+svg.addEventListener('mousemove',function(e){{
+var m=svg.getScreenCTM();if(!m)return;var pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;
+var u=pt.matrixTransform(m.inverse());var best=null,bd=R2;
+for(var i=0;i<dots.length;i++){{var dx=dots[i].x-u.x,dy=dots[i].y-u.y,d=dx*dx+dy*dy;if(d<bd){{bd=d;best=dots[i];}}}}
+if(best){{var wr=wrap.getBoundingClientRect();tip.textContent=best.t;tip.style.display='block';
+var lx=e.clientX-wr.left+12;if(lx+tip.offsetWidth>wr.width)lx=e.clientX-wr.left-tip.offsetWidth-12;
+tip.style.left=lx+'px';tip.style.top=(e.clientY-wr.top+14)+'px';}}else{{tip.style.display='none';}}}});
+svg.addEventListener('mouseleave',function(){{tip.style.display='none';}});
+}})();
+</script>"""
+
+
 if __name__ == "__main__":
     payload = json.load(open(sys.argv[1]))
-    out = sys.argv[2] if len(sys.argv) > 2 else None
-    html = build_html(payload)
-    if out:
-        open(out, "w").write(html)
-        print(f"wrote {out}")
+    args = sys.argv[2:]
+    widget = "--widget" in args
+    outs = [a for a in args if not a.startswith("--")]
+    content = build_widget(payload) if widget else build_html(payload)
+    if outs:
+        open(outs[0], "w").write(content)
+        print(f"wrote {outs[0]}")
     else:
-        sys.stdout.write(html)
+        sys.stdout.write(content)
